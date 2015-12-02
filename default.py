@@ -41,13 +41,16 @@ def message(message, title = "Warning"): #Show an on-screen message (useful for 
  else:
   dialog.ok("Message", "No message text")
 
-def gethtmlpage(url): #Grab an HTML page
+def gethtmlpage(url, cookie): #Grab an HTML page
  sys.stderr.write("Requesting page: %s" % (url))
  req = urllib2.Request(url)
+ if cookie <> "":                                                                                                                   
+   req.add_header('cookie', cookie)
  response = urllib2.urlopen(req)
  doc = response.read()
+ cookie = response.headers.get('Set-Cookie') 
  response.close()
- return doc
+ return doc, cookie
 
 def unescape(s): #Convert escaped HTML characters back to native unicode, e.g. &gt; to > and &quot; to "
  return re.sub('&(%s);' % '|'.join(name2codepoint), lambda m: unichr(name2codepoint[m.group(1)]), s)
@@ -134,7 +137,7 @@ def createauthstring():
    authurl = "&auth=%s" % (hash)
    videoauthurl = authurl
   else:
-   authurl = "&username=%s&password=%s&action=login" % (__addon__.getSetting('username').strip(), __addon__.getSetting('password').strip())
+   authurl = "&username=%s&password=%s&action=login&view=postlogin" % (__addon__.getSetting('username').strip(), __addon__.getSetting('password').strip())
    videoauthurl = "&user=%s&pass=%s" % (__addon__.getSetting('username').strip(), __addon__.getSetting('password').strip())
  return authurl, videoauthurl
  
@@ -144,7 +147,8 @@ def listcameras():
  authurl, videoauthurl = createauthstring()
  url = "%s?skin=classic%s" % (zmurl, authurl)
  sys.stderr.write("Grabbing URL: %s" % url)
- doc = gethtmlpage(url)
+ cookie = ""
+ doc, cookie = gethtmlpage(url, cookie)
  match = re.compile('<form name="loginForm"').findall(doc)
  if len(match) > 0:
   sys.stderr.write(localize(30200))
@@ -152,6 +156,9 @@ def listcameras():
   __addon__.openSettings(url = sys.argv[0])
   sys.exit()
  else:
+  # OK, logged in, now get index.php for camera list                                                                                
+  url = "%s/index.php" % (zmurl)                                                                                                    
+  doc, cookie = gethtmlpage(url, cookie)  
   match = re.compile("'zmWatch([0-9]+)', 'watch', ([1-9][0-9]+), ([1-9][0-9]+) \); return\( false \);" + '"' + ">(.*?)</a>").findall(doc)
   if len(match) > 0:
    qualityurl = "&bitrate=%s&maxfps=%s" % (__addon__.getSetting('bitrate'), __addon__.getSetting('fps'))
@@ -160,7 +167,7 @@ def listcameras():
     info["Title"] = name
     info["VideoResolution"] = width
     info["Videoaspect"] = calculateaspect(width, height)
-    info["FileName"] = "%snph-zms?monitor=%s&mode=mpeg&format=avi%s%s" % (cgiurl, id, qualityurl, videoauthurl)
+    info["FileName"] = "%snph-zms?monitor=%s&format=avi%s%s" % (cgiurl, id, qualityurl, videoauthurl)
     info["Thumb"] = "%snph-zms?monitor=%s&mode=single%s" % (cgiurl, id, videoauthurl)
     addlistitem(info, len(match), 0)
   else:
