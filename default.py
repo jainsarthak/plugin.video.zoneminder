@@ -32,7 +32,7 @@ xbmcplugin.setPluginCategory(int(sys.argv[1]), 'CCTV')
 # Montage?
 
 #Show an on-screen message (useful for debugging)
-def message(message, title = "Warning"): 
+def message (message, title = "Warning"): 
    dialog = xbmcgui.Dialog()
    if message:
       if message <> "":
@@ -42,7 +42,7 @@ def message(message, title = "Warning"):
    else :
       dialog.ok("Message", "No message text")
 
-def gethtmlpage(url, cookie): #Grab an HTML page
+def gethtmlpage (url, cookie): #Grab an HTML page
    sys.stderr.write("Requesting page: %s" % (url))
    req = urllib2.Request(url)
    if cookie <> "":
@@ -56,14 +56,14 @@ def gethtmlpage(url, cookie): #Grab an HTML page
 
 #Convert escaped HTML characters back to native unicode, e.g. &gt; 
 #to > and &quot; to "
-def unescape(s): 
+def unescape (s): 
    return (re.sub('&(%s);' % '|'.join(name2codepoint), 
            lambda m: unichr(name2codepoint[m.group(1)]), s))
 
 #Set the default info for folders (1) and videos (0). Most options 
 #have been hashed out as they don't show up in the list and are grabbed
 #from the media by the player
-def defaultinfo(folder = 0): 
+def defaultinfo (folder = 0): 
    info = dict()
    if folder:
       info["Icon"] = "DefaultFolder.png"
@@ -76,7 +76,7 @@ def defaultinfo(folder = 0):
    return info
 
 #Check that all of the list "items" are in the dictionary "info"
-def checkdict(info, items): 
+def checkdict (info, items): 
    for item in items:
       if info.get(item, "##unlikelyphrase##") == "##unlikelyphrase##":
          sys.stderr.write("Dictionary missing item: %s" % (item))
@@ -84,7 +84,7 @@ def checkdict(info, items):
    return 1
 
 #Add a list item (media file or folder) to the XBMC page
-def addlistitem(info, total = 0, folder = 0): 
+def addlistitem (info, total = 0, folder = 0): 
    if checkdict(info, ("Title", "Icon", "Thumb", "FileName")):
       liz = (xbmcgui.ListItem(info["Title"], iconImage = info["Icon"], 
              thumbnailImage = info["Thumb"]))
@@ -99,7 +99,7 @@ def addlistitem(info, total = 0, folder = 0):
          url = info["FileName"], listitem = liz, isFolder = folder, 
          totalItems = total)
 
-def calculateaspect(width, height):
+def calculateaspect (width, height):
    aspect = int(width)/int(height)
    if aspect <= 1.35:
       return "1.33"
@@ -114,18 +114,18 @@ def calculateaspect(width, height):
    else :
       return "2.35"
 
-def geturl(path):
+def geturl (path):
    server = __addon__.getSetting('server').strip("/").strip()
    path = path.strip("/").strip()
    url = "http://%s/%s/" % (server, path)
    return url
 
-def mysql_password(str):
+def mysql_password (str):
    pass1 = sha.new(str).digest()
    pass2 = sha.new(pass1).hexdigest()
    return "*" + pass2.upper()
 
-def mysql_old_password(password):
+def mysql_old_password (password):
    nr = 1345345333
    add = 7
    nr2 = 0x12345671
@@ -136,7 +136,7 @@ def mysql_old_password(password):
    return "%08x%08x" % (nr & 0x7FFFFFFF,nr2 & 0x7FFFFFFF)
 
 
-def createauthstring():
+def createauthstring ():
    authurl = ""
    videoauthurl = ""
    if __addon__.getSetting('auth') == 'true':
@@ -167,15 +167,16 @@ def createauthstring():
                           __addon__.getSetting('password').strip()))
    return authurl, videoauthurl
  
-def listcameras():
+def listcameras ():
    zmurl = geturl(__addon__.getSetting('zmurl'))
    cgiurl = geturl(__addon__.getSetting('cgiurl'))
    authurl, videoauthurl = createauthstring()
    url = "%s?skin=classic%s" % (zmurl, authurl)
    sys.stderr.write("Grabbing URL: %s" % url)
    cookie = ""
-   doc, cookie = gethtmlpage(url, cookie)
+   doc, cookie = gethtmlpage (url, cookie)
    match = re.compile('<form name="loginForm"').findall(doc)
+
    if len(match) > 0:
       sys.stderr.write(localize(30200))
       message(localize(30201), localize(30200))
@@ -185,7 +186,7 @@ def listcameras():
       # OK, logged in, now get index.php for camera list
       url = "%s/index.php" % (zmurl)
 
-      doc, cookie = gethtmlpage(url, cookie)  
+      doc, cookie = gethtmlpage (url, cookie)  
       match = re.compile(
          "'zmWatch([0-9]+)', 'watch', ([1-9][0-9]+), ([1-9][0-9]+) \);"
          " return\( false \);" + '"' + ">(.*?)</a>").findall(doc)
@@ -203,16 +204,21 @@ def listcameras():
                               (cgiurl, id, qualityurl, videoauthurl))
           info["Thumb"] = ("%snph-zms?monitor=%s&mode=single%s" % 
                            (cgiurl, id, videoauthurl))
-          addlistitem(info, len(match), 0)
+          addlistitem (info, len(match), 0)
       else :
          sys.stderr.write(localize(30202))
          message(localize(30202))
 
-#Main program
+################
+# Main program #
+################
 listcameras()
+
 xbmcplugin.addSortMethod(handle = int(sys.argv[1]), 
     sortMethod = xbmcplugin.SORT_METHOD_UNSORTED)
+
 xbmcplugin.addSortMethod(handle = int(sys.argv[1]), 
     sortMethod = xbmcplugin.SORT_METHOD_LABEL)
+
 xbmcplugin.endOfDirectory(int(sys.argv[1]))
 
