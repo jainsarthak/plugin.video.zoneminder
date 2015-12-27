@@ -57,7 +57,8 @@ def gethtmlpage(url, cookie): #Grab an HTML page
 #Convert escaped HTML characters back to native unicode, e.g. &gt; 
 #to > and &quot; to "
 def unescape(s): 
-   return re.sub('&(%s);' % '|'.join(name2codepoint), lambda m: unichr(name2codepoint[m.group(1)]), s)
+   return (re.sub('&(%s);' % '|'.join(name2codepoint), 
+           lambda m: unichr(name2codepoint[m.group(1)]), s))
 
 #Set the default info for folders (1) and videos (0). Most options 
 #have been hashed out as they don't show up in the list and are grabbed
@@ -85,12 +86,18 @@ def checkdict(info, items):
 #Add a list item (media file or folder) to the XBMC page
 def addlistitem(info, total = 0, folder = 0): 
    if checkdict(info, ("Title", "Icon", "Thumb", "FileName")):
-      liz = xbmcgui.ListItem(info["Title"], iconImage = info["Icon"], thumbnailImage = info["Thumb"])
-      liz.setProperty('fanart_image', os.path.join(sys.path[0], 'fanart.jpg'))
+      liz = (xbmcgui.ListItem(info["Title"], iconImage = info["Icon"], 
+             thumbnailImage = info["Thumb"]))
+      liz.setProperty('fanart_image', os.path.join(sys.path[0], 
+                      'fanart.jpg'))
       liz.setInfo(type = "Video", infoLabels = info)
+
       if not folder:
          liz.setProperty("IsPlayable", "true")
-      xbmcplugin.addDirectoryItem(handle = int(sys.argv[1]), url = info["FileName"], listitem = liz, isFolder = folder, totalItems = total)
+
+      xbmcplugin.addDirectoryItem(handle = int(sys.argv[1]), 
+         url = info["FileName"], listitem = liz, isFolder = folder, 
+         totalItems = total)
 
 def calculateaspect(width, height):
    aspect = int(width)/int(height)
@@ -141,15 +148,23 @@ def createauthstring():
             else :
                myIP = __addon__.getSetting('otherip')
          nowtime = time.localtime()
-         hashtime = "%s%s%s%s" % (nowtime[3], nowtime[2], nowtime[1] - 1, nowtime[0] - 1900)
+         hashtime = ("%s%s%s%s" % (nowtime[3], nowtime[2], 
+                     nowtime[1] - 1, nowtime[0] - 1900))
          sys.stderr.write("Time (for hash): %s" % hashtime)
-         hashable = "%s%s%s%s%s" % (__addon__.getSetting('secret'), __addon__.getSetting('username'), mysql_password(__addon__.getSetting('password')), myIP, hashtime)
+         hashable = ("%s%s%s%s%s" % (__addon__.getSetting('secret'), 
+                     __addon__.getSetting('username'), 
+                     mysql_password(__addon__.getSetting('password')), 
+                     myIP, hashtime))
          hash = md5.new(hashable).hexdigest()
          authurl = "&auth=%s" % (hash)
          videoauthurl = authurl
       else :
-         authurl = "&username=%s&password=%s&action=login&view=postlogin" % (__addon__.getSetting('username').strip(), __addon__.getSetting('password').strip())
-         videoauthurl = "&user=%s&pass=%s" % (__addon__.getSetting('username').strip(), __addon__.getSetting('password').strip())
+         authurl = ("&username=%s&password=%s&action=login&view=postlogin" 
+                    % (__addon__.getSetting('username').strip(), 
+                    __addon__.getSetting('password').strip()))
+         videoauthurl = ("&user=%s&pass=%s" % 
+                         (__addon__.getSetting('username').strip(), 
+                          __addon__.getSetting('password').strip()))
    return authurl, videoauthurl
  
 def listcameras():
@@ -167,19 +182,27 @@ def listcameras():
       __addon__.openSettings(url = sys.argv[0])
       sys.exit()
    else :
-      # OK, logged in, now get index.php for camera list                                                                                
-      url = "%s/index.php" % (zmurl)                                                                                                    
+      # OK, logged in, now get index.php for camera list
+      url = "%s/index.php" % (zmurl)
+
       doc, cookie = gethtmlpage(url, cookie)  
-      match = re.compile("'zmWatch([0-9]+)', 'watch', ([1-9][0-9]+), ([1-9][0-9]+) \); return\( false \);" + '"' + ">(.*?)</a>").findall(doc)
+      match = re.compile(
+         "'zmWatch([0-9]+)', 'watch', ([1-9][0-9]+), ([1-9][0-9]+) \);"
+         " return\( false \);" + '"' + ">(.*?)</a>").findall(doc)
       if len(match) > 0:
-         qualityurl = "&bitrate=%s&maxfps=%s" % (__addon__.getSetting('bitrate'), __addon__.getSetting('fps'))
+         qualityurl = ("&bitrate=%s&maxfps=%s" % 
+            (__addon__.getSetting('bitrate'),
+            __addon__.getSetting('fps')))
+
          for id, width, height, name in match:
           info = defaultinfo()
           info["Title"] = name
           info["VideoResolution"] = width
           info["Videoaspect"] = calculateaspect(width, height)
-          info["FileName"] = "%snph-zms?monitor=%s&format=avi%s%s" % (cgiurl, id, qualityurl, videoauthurl)
-          info["Thumb"] = "%snph-zms?monitor=%s&mode=single%s" % (cgiurl, id, videoauthurl)
+          info["FileName"] = ("%snph-zms?monitor=%s&format=avi%s%s" % 
+                              (cgiurl, id, qualityurl, videoauthurl))
+          info["Thumb"] = ("%snph-zms?monitor=%s&mode=single%s" % 
+                           (cgiurl, id, videoauthurl))
           addlistitem(info, len(match), 0)
       else :
          sys.stderr.write(localize(30202))
