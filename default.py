@@ -83,6 +83,12 @@ def checkDict (info, items):
             return 0
     return 1
 
+#Builds a URL similar to:
+# plugin://plugin.video.myaddon/?mode=folder&foldername=Folder+One
+# See http://kodi.wiki/view/Audio/Video_plugin_tutorial
+def buildUrl(baseUrl, query):
+    return baseUrl + '?' + urllib.urlencode(query)
+
 #Add a list item (media file or folder) to the XBMC page
 def addListItem (info, total = 0, folder = 0): 
     if checkDict(info, ("Title", "Icon", "Thumb", "FileName")):
