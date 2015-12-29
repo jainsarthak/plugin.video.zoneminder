@@ -42,7 +42,7 @@ def message (message, title = "Warning"):
     else :
         dialog.ok("Message", "No message text")
 
-def gethtmlpage (url, cookie): #Grab an HTML page
+def getHtmlPage (url, cookie): #Grab an HTML page
     sys.stderr.write("Requesting page: %s" % (url))
     req = urllib2.Request(url)
     if cookie <> "":
@@ -63,7 +63,7 @@ def unescape (s):
 #Set the default info for folders (1) and videos (0). Most options 
 #have been hashed out as they don't show up in the list and are grabbed
 #from the media by the player
-def defaultinfo (folder = 0): 
+def defaultInfo (folder = 0): 
     info = dict()
     if folder:
         info["Icon"] = "DefaultFolder.png"
@@ -76,7 +76,7 @@ def defaultinfo (folder = 0):
     return info
 
 #Check that all of the list "items" are in the dictionary "info"
-def checkdict (info, items): 
+def checkDict (info, items): 
     for item in items:
         if info.get(item, "##unlikelyphrase##") == "##unlikelyphrase##":
             sys.stderr.write("Dictionary missing item: %s" % (item))
@@ -84,8 +84,8 @@ def checkdict (info, items):
     return 1
 
 #Add a list item (media file or folder) to the XBMC page
-def addlistitem (info, total = 0, folder = 0): 
-    if checkdict(info, ("Title", "Icon", "Thumb", "FileName")):
+def addListItem (info, total = 0, folder = 0): 
+    if checkDict(info, ("Title", "Icon", "Thumb", "FileName")):
         liz = (xbmcgui.ListItem(info["Title"], iconImage = info["Icon"], 
                  thumbnailImage = info["Thumb"]))
         liz.setProperty('fanart_image', os.path.join(sys.path[0], 
@@ -99,7 +99,7 @@ def addlistitem (info, total = 0, folder = 0):
             url = info["FileName"], listitem = liz, isFolder = folder, 
             totalItems = total)
 
-def calculateaspect (width, height):
+def calculateAspect (width, height):
     aspect = int(width)/int(height)
     if aspect <= 1.35:
         return "1.33"
@@ -114,29 +114,18 @@ def calculateaspect (width, height):
     else :
         return "2.35"
 
-def geturl (path):
+def getUrl (path):
     server = __addon__.getSetting('server').strip("/").strip()
     path = path.strip("/").strip()
     url = "http://%s/%s/" % (server, path)
     return url
 
-def mysql_password (str):
+def mysqlPassword (str):
     pass1 = sha.new(str).digest()
     pass2 = sha.new(pass1).hexdigest()
     return "*" + pass2.upper()
 
-def mysql_old_password (password):
-    nr = 1345345333
-    add = 7
-    nr2 = 0x12345671
-    for c in (ord(x) for x in password if x not in (' ', '\t')):
-        nr^= (((nr & 63)+add)*c)+ (nr << 8) & 0xFFFFFFFF
-        nr2= (nr2 + ((nr2 << 8) ^ nr)) & 0xFFFFFFFF
-        add= (add + c) & 0xFFFFFFFF
-    return "%08x%08x" % (nr & 0x7FFFFFFF,nr2 & 0x7FFFFFFF)
-
-
-def createauthstring ():
+def createAuthString ():
     authurl = ""
     videoauthurl = ""
     if __addon__.getSetting('auth') == 'true':
@@ -153,7 +142,7 @@ def createauthstring ():
             sys.stderr.write("Time (for hash): %s" % hashtime)
             hashable = ("%s%s%s%s%s" % (__addon__.getSetting('secret'), 
                         __addon__.getSetting('username'), 
-                        mysql_password(__addon__.getSetting('password')), 
+                        mysqlPassword(__addon__.getSetting('password')), 
                         myIP, hashtime))
             hash = md5.new(hashable).hexdigest()
             authurl = "&auth=%s" % (hash)
@@ -168,14 +157,14 @@ def createauthstring ():
                                   __addon__.getSetting('password').strip()))
     return authurl, videoauthurl
  
-def listcameras ():
-    zmurl = geturl(__addon__.getSetting('zmurl'))
-    cgiurl = geturl(__addon__.getSetting('cgiurl'))
-    authurl, videoauthurl = createauthstring()
+def listCameras ():
+    zmurl = getUrl(__addon__.getSetting('zmurl'))
+    cgiurl = getUrl(__addon__.getSetting('cgiurl'))
+    authurl, videoauthurl = createAuthString()
     url = "%s?skin=classic%s" % (zmurl, authurl)
     sys.stderr.write("Grabbing URL: %s" % url)
     cookie = ""
-    doc, cookie = gethtmlpage (url, cookie)
+    doc, cookie = getHtmlPage (url, cookie)
     match = re.compile('<form name="loginForm"').findall(doc)
 
     if len(match) > 0:
@@ -187,39 +176,83 @@ def listcameras ():
         # OK, logged in, now get index.php for camera list
         url = "%s/index.php" % (zmurl)
 
-        doc, cookie = gethtmlpage (url, cookie)  
+        doc, cookie = getHtmlPage (url, cookie)  
         match = re.compile(
-            "'zmWatch([0-9]+)', 'watch', ([1-9][0-9]+), ([1-9][0-9]+) \);"
-            " return\( false \);" + '"' + ">(.*?)</a>").findall(doc)
+            "'zmWatch([0-9]+)', 'watch', ([1-9][0-9]+), ([1-9][0-9]+) \); "
+            "return\( false \);\">(.*?)</a>").findall(doc)
         if len(match) > 0:
             qualityurl = ("&bitrate=%s&maxfps=%s" % 
                 (__addon__.getSetting('bitrate'),
                 __addon__.getSetting('fps')))
 
             for id, width, height, name in match:
-             info = defaultinfo()
-             info["Title"] = name
-             info["VideoResolution"] = width
-             info["Videoaspect"] = calculateaspect(width, height)
-             info["FileName"] = ("%snph-zms?monitor=%s&format=avi%s%s" % 
-                                 (cgiurl, id, qualityurl, videoauthurl))
-             info["Thumb"] = ("%snph-zms?monitor=%s&mode=single%s" % 
-                                    (cgiurl, id, videoauthurl))
-             addlistitem (info, len(match), 0)
+                # Add the live view item
+                info = defaultInfo ()
+                info["Title"] = name + " Live View"
+                info["VideoResolution"] = width
+                info["Videoaspect"] = calculateAspect(width, height)
+                info["FileName"] = ("%snph-zms?monitor=%s&format=avi%s%s" % 
+                                    (cgiurl, id, qualityurl, videoauthurl))
+                info["Thumb"] = ("%snph-zms?monitor=%s&mode=single%s" % 
+                                       (cgiurl, id, videoauthurl))
+                addListItem (info, len(match), 0)
+
+                #List events (of any)
+                listEvents (id, info, doc, name)
         else :
             sys.stderr.write(localize(30202))
             message(localize(30202))
 
+def listEvents (thisCameraId, info, doc, name):
+    # Now get index.php for camera events list
+    match = re.compile(
+        "=([0-9]+)', 'zmEvents', 'events' \); "
+        "return\( false \);\">([0-9]+)").findall(doc)
+
+    if len(match) > 0:
+
+        for id, totalEvents in match:
+            #Match events for the current camera ID only.
+            if id != thisCameraId :
+                continue
+
+            # Add the event item to the menu
+            info = dict ()
+            info["Icon"] = "DefaultFolder.png"
+            info["FileName"] = "?Test=filename"
+            info["Thumb"] = ""
+
+            info["Title"] = "%s Events (%i)" % (name, int (totalEvents))
+
+            # Add the events view item
+            addListItem (info, len(match), 0)
+            break
+    else :
+        sys.stderr.write(localize(30203))
+        message(localize(30203))
+
 ################
 # Main program #
 ################
-listcameras()
+baseUrl = sys.argv[0]
+addonHandle = int(sys.argv[1])
+queryStr = sys.argv[2]
+args = urlparse.parse_qs(sys.argv[2][1:])
+queryMode = args.get('mode', None)
 
-xbmcplugin.addSortMethod(handle = int(sys.argv[1]), 
-     sortMethod = xbmcplugin.SORT_METHOD_UNSORTED)
+if queryMode is None :
+    listCameras()
 
-xbmcplugin.addSortMethod(handle = int(sys.argv[1]), 
-     sortMethod = xbmcplugin.SORT_METHOD_LABEL)
+    xbmcplugin.setContent(addonHandle, 'movies')
 
-xbmcplugin.endOfDirectory(int(sys.argv[1]))
+    xbmcplugin.addSortMethod(handle = addonHandle, 
+         sortMethod = xbmcplugin.SORT_METHOD_UNSORTED)
+
+    xbmcplugin.addSortMethod(handle = addonHandle, 
+         sortMethod = xbmcplugin.SORT_METHOD_LABEL)
+
+    xbmcplugin.endOfDirectory(addonHandle)
+
+elif queryMode[0] == 'folder' :
+    pass
 

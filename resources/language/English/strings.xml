@@ -16,5 +16,6 @@
  <string id="30101">Authentication</string>
  <string id="30200">Authentication Required</string>
  <string id="30201">Please configure authentication in the addon settings.</string>
-  <string id="30202">No cameras found</string>
+ <string id="30202">No cameras found</string>
+ <string id="30203">No events found</string>
 </strings>
