@@ -32,7 +32,7 @@ xbmcplugin.setPluginCategory(int(sys.argv[1]), 'CCTV')
 # Montage?
 
 #Show an on-screen message (useful for debugging)
-def message (message, title = "Warning"): 
+def showMessage (message, title = "Warning"): 
     dialog = xbmcgui.Dialog()
     if message:
         if message <> "":
@@ -72,6 +72,7 @@ def defaultInfo (folder = 0):
         info["VideoCodec"] = "mp4v"
 
     info["Thumb"] = ""
+    info["CameraId"] = 0
 
     return info
 
@@ -90,10 +91,11 @@ def buildUrl(baseUrl, query):
     return baseUrl + '?' + urllib.urlencode(query)
 
 #Add a list item (media file or folder) to the XBMC page
-def addListItem (info, total = 0, folder = 0): 
-    if checkDict(info, ("Title", "Icon", "Thumb", "FileName")):
-        liz = (xbmcgui.ListItem(info["Title"], iconImage = info["Icon"], 
-                 thumbnailImage = info["Thumb"]))
+def addListItem (addonHandle, info, total = 0, folder = False): 
+    keyTypes = ("Title", "Icon", "Thumb", "FileName", "Mode", "CameraId")
+    if checkDict(info, keyTypes):
+        liz = xbmcgui.ListItem (info["Title"], iconImage = info["Icon"], 
+                 thumbnailImage = info["Thumb"])
         liz.setProperty('fanart_image', os.path.join(sys.path[0], 
                              'fanart.jpg'))
         liz.setInfo(type = "Video", infoLabels = info)
@@ -101,7 +103,7 @@ def addListItem (info, total = 0, folder = 0):
         if not folder:
             liz.setProperty("IsPlayable", "true")
 
-        xbmcplugin.addDirectoryItem(handle = int(sys.argv[1]), 
+        xbmcplugin.addDirectoryItem(handle = addonHandle, 
             url = info["FileName"], listitem = liz, isFolder = folder, 
             totalItems = total)
 
@@ -163,7 +165,7 @@ def createAuthString ():
                                   __addon__.getSetting('password').strip()))
     return authurl, videoauthurl
  
-def listCameras ():
+def listCameras (addonHandle):
     zmurl = getUrl(__addon__.getSetting('zmurl'))
     cgiurl = getUrl(__addon__.getSetting('cgiurl'))
     authurl, videoauthurl = createAuthString()
@@ -175,7 +177,7 @@ def listCameras ():
 
     if len(match) > 0:
         sys.stderr.write(localize(30200))
-        message(localize(30201), localize(30200))
+        showMessage(localize(30201), localize(30200))
         __addon__.openSettings(url = sys.argv[0])
         sys.exit()
     else :
@@ -192,24 +194,25 @@ def listCameras ():
                 __addon__.getSetting('fps')))
 
             for id, width, height, name in match:
-                # Add the live view item
+                # Add the Live View item
                 info = defaultInfo ()
-                info["Title"] = name + " Live View"
+                info["Title"] = name + " " + localize (30205)
                 info["VideoResolution"] = width
                 info["Videoaspect"] = calculateAspect(width, height)
                 info["FileName"] = ("%snph-zms?monitor=%s&format=avi%s%s" % 
                                     (cgiurl, id, qualityurl, videoauthurl))
                 info["Thumb"] = ("%snph-zms?monitor=%s&mode=single%s" % 
                                        (cgiurl, id, videoauthurl))
-                addListItem (info, len(match), 0)
+                info["Mode"] = "TopLevel"
+                addListItem (addonHandle, info, len(match), False)
 
                 #List events (of any)
-                listEvents (id, zmurl, info, doc, name)
+                listEventsFolder (addonHandle, id, url, info, doc, name)
         else :
             sys.stderr.write(localize(30202))
-            message(localize(30202))
+            showMessage(localize(30202))
 
-def listEvents (thisCameraId, zmUrl, info, doc, name):
+def listEventsFolder (addonHandle, thisCameraId, baseUrl, info, doc, name):
     # Now get index.php for camera events list
     match = re.compile(
         "=([0-9]+)', 'zmEvents', 'events' \); "
@@ -223,23 +226,68 @@ def listEvents (thisCameraId, zmUrl, info, doc, name):
                 continue
 
             # Add the event item to the menu
-            info = dict ()
-            info["Icon"] = "DefaultFolder.png"
-            url = "%s/index.php" % (zmUrl)
+            info = defaultInfo ()
             info["FileName"] = ("%s?view=events&page=1" 
                             "&filter[terms][0][attr]=MonitorId"
                             "&filter[terms][0][op]=%%3D"
                             "&filter[terms][0][val]=%i"
-                            % (url, int (thisCameraId)))
+                            % (baseUrl, int (thisCameraId)))
             info["Thumb"] = ""
 
-            info["Title"] = "%s Events (%i)" % (name, int (totalEvents))
+            # Add the Events(x) listitem, where x is the number of 
+            # recorded events.
+            info["Title"] = ("%s %s (%i)" % 
+                            (name, localize(30204), int (totalEvents)))
+            info["Mode"] = "EventsFolder"
+            info["CameraId"] = int (thisCameraId)
 
             # Add the events view item
-            addListItem (info, len(match), 0)
+            addListItem (addonHandle, info, len(match), True)
             break
+
     else : #this is not an error since some cameras may have no events
-        sys.stderr.write(localize(30203))
+        sys.stderr.write("No events found for camera %d" 
+                        % (int (thisCameraId)))
+
+def listEvents (addonHandle, thisCameraId, baseUrl, info, doc, name):
+    # Now get index.php for camera events list
+    match = re.compile(
+        "=([0-9]+)', 'zmEvents', 'events' \); "
+        "return\( false \);\">([0-9]+)").findall(doc)
+
+    if len(match) > 0:
+
+        for id, totalEvents in match:
+            #Match events for the current camera ID only.
+            if id != thisCameraId :
+                continue
+
+            # Add the event item to the menu
+            info = defaultInfo ()
+            info["VideoResolution"] = width
+            info["Videoaspect"] = calculateAspect(width, height)
+            info["FileName"] = ("%s?view=events&page=1" 
+                            "&filter[terms][0][attr]=MonitorId"
+                            "&filter[terms][0][op]=%%3D"
+                            "&filter[terms][0][val]=%i"
+                            % (baseUrl, int (thisCameraId)))
+            info["Thumb"] = ("%snph-zms?monitor=%s&mode=single%s" % 
+                                   (cgiurl, id, videoauthurl))
+            info["Mode"] = "Events"
+
+            # Add the Events(x) listitem, where x is the number of 
+            # recorded events.
+            info["Title"] = ("%s %s (%i)" % 
+                            (name, localize(30204), int (totalEvents)))
+            info["Mode"] = "Events"
+
+            # Add the events view item
+            addListItem (addonHandle, info, len(match), True)
+            break
+
+    else : #this is not an error since some cameras may have no events
+        sys.stderr.write("No events found for camera %d" 
+                        % (int (thisCameraId)))
 
 ################
 # Main program #
@@ -248,10 +296,10 @@ baseUrl = sys.argv[0]
 addonHandle = int(sys.argv[1])
 queryStr = sys.argv[2]
 args = urlparse.parse_qs(queryStr[1:])
-queryMode = args.get('mode', None)
+queryMode = args.get('Mode', None)
 
 if queryMode is None :
-    listCameras()
+    listCameras (addonHandle)
 
     xbmcplugin.setContent(addonHandle, 'movies')
 
@@ -263,7 +311,8 @@ if queryMode is None :
 
     xbmcplugin.endOfDirectory(addonHandle)
 
-elif queryMode[0] == 'folder' :
+elif queryMode[0] == 'EventsFolder' :
     sys.stderr.write ("Second baseUrl " + baseUrl)
     sys.stderr.write ("Second query " + queryStr)
+    showMessage("Go an Event", "Debug")
 
