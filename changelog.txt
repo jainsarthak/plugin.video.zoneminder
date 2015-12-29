@@ -1,3 +1,6 @@
+1.2.0
+- Added support to view events for all cameras.
+
 1.1.2
 - Frodo Compatible Version
 

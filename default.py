@@ -198,12 +198,12 @@ def listCameras ():
                 addListItem (info, len(match), 0)
 
                 #List events (of any)
-                listEvents (id, info, doc, name)
+                listEvents (id, zmurl, info, doc, name)
         else :
             sys.stderr.write(localize(30202))
             message(localize(30202))
 
-def listEvents (thisCameraId, info, doc, name):
+def listEvents (thisCameraId, zmUrl, info, doc, name):
     # Now get index.php for camera events list
     match = re.compile(
         "=([0-9]+)', 'zmEvents', 'events' \); "
@@ -219,7 +219,12 @@ def listEvents (thisCameraId, info, doc, name):
             # Add the event item to the menu
             info = dict ()
             info["Icon"] = "DefaultFolder.png"
-            info["FileName"] = "?Test=filename"
+            url = "%s/index.php" % (zmUrl)
+            info["FileName"] = ("%s?view=events&page=1" 
+                            "&filter[terms][0][attr]=MonitorId"
+                            "&filter[terms][0][op]=%%3D"
+                            "&filter[terms][0][val]=%i"
+                            % (url, int (thisCameraId)))
             info["Thumb"] = ""
 
             info["Title"] = "%s Events (%i)" % (name, int (totalEvents))
@@ -227,9 +232,8 @@ def listEvents (thisCameraId, info, doc, name):
             # Add the events view item
             addListItem (info, len(match), 0)
             break
-    else :
+    else : #this is not an error since some cameras may have no events
         sys.stderr.write(localize(30203))
-        message(localize(30203))
 
 ################
 # Main program #
@@ -237,7 +241,7 @@ def listEvents (thisCameraId, info, doc, name):
 baseUrl = sys.argv[0]
 addonHandle = int(sys.argv[1])
 queryStr = sys.argv[2]
-args = urlparse.parse_qs(sys.argv[2][1:])
+args = urlparse.parse_qs(queryStr[1:])
 queryMode = args.get('mode', None)
 
 if queryMode is None :
@@ -254,5 +258,6 @@ if queryMode is None :
     xbmcplugin.endOfDirectory(addonHandle)
 
 elif queryMode[0] == 'folder' :
-    pass
+    sys.stderr.write ("Second baseUrl " + baseUrl)
+    sys.stderr.write ("Second query " + queryStr)
 
