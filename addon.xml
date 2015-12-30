@@ -2,9 +2,10 @@
 <addon id="plugin.video.zoneminder"
        version="1.2.0"
        name="ZoneMinder"
-       provider-name="Mark Honeychurch (markhoney) and spargopolis">
+       provider-name="M. Honeychurch, jamoZA and spargopolis">
   <requires>
     <import addon="xbmc.python" version="2.19.0"/>
+    <import addon="script.module.pydevd" version="3.4.1"/>
   </requires>
   <extension point="xbmc.python.pluginsource" library="default.py">
     <provides>video</provides>

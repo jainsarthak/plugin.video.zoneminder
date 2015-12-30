@@ -1,2 +1,5 @@
 *.swp
+.metadata/*
+.project
+.pydevproject
 

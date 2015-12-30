@@ -19,11 +19,34 @@
 # *
 # */
 
-import os, sys, urllib, urllib2, htmllib, string, unicodedata, re
-import time, urlparse, cgi, md5, sha, xbmcgui, xbmcplugin, xbmcaddon
+import os, sys, urllib, urllib2, re
+import time, urlparse, md5, sha, xbmcgui, xbmcplugin, xbmcaddon
+
+REMOTE_DBG = True
+
+# append pydev remote debugger. 
+# Ref. http://kodi.wiki/view/HOW-TO:Debug_Python_Scripts_with_Eclipse
+if REMOTE_DBG:
+    # Make pydev debugger works for auto reload.
+    # Note pydevd module need to be copied in XBMC\system\python\Lib\pysrc
+    try :
+        #import pysrc.pydevd as pydevd 
+        import sys
+        sys.path.append('full_path_to_pysrc')
+        import pydevd
+        # stdoutToServer and stderrToServer redirect stdout and stderr 
+        # to eclipse console. Copy this line to where you want the
+        # debugger to initially stop.
+        #pydevd.settrace('localhost', stdoutToServer=True, stderrToServer=True)
+    except ImportError:
+        sys.stderr.write("Error: " +
+            "You must add org.python.pydev.debug.pysrc to your PYTHONPATH.")
+        sys.exit(1)
+       
 
 __addon__ = xbmcaddon.Addon(id = sys.argv[0][9:-1])
 localize  = __addon__.getLocalizedString
+baseUrl = sys.argv[0]
 
 xbmcplugin.setPluginCategory(int(sys.argv[1]), 'CCTV')
 
@@ -54,16 +77,10 @@ def getHtmlPage (url, cookie): #Grab an HTML page
 
     return doc, cookie
 
-#Convert escaped HTML characters back to native unicode, e.g. &gt; 
-#to > and &quot; to "
-def unescape (s): 
-    return (re.sub('&(%s);' % '|'.join(name2codepoint), 
-              lambda m: unichr(name2codepoint[m.group(1)]), s))
-
 #Set the default info for folders (1) and videos (0). Most options 
 #have been hashed out as they don't show up in the list and are grabbed
 #from the media by the player
-def defaultInfo (folder = 0): 
+def defaultInfo (folder = False): 
     info = dict()
     if folder:
         info["Icon"] = "DefaultFolder.png"
@@ -87,7 +104,7 @@ def checkDict (info, items):
 #Builds a URL similar to:
 # plugin://plugin.video.myaddon/?mode=folder&foldername=Folder+One
 # See http://kodi.wiki/view/Audio/Video_plugin_tutorial
-def buildUrl(baseUrl, query):
+def buildUrl(query):
     return baseUrl + '?' + urllib.urlencode(query)
 
 #Add a list item (media file or folder) to the XBMC page
@@ -103,9 +120,17 @@ def addListItem (addonHandle, info, total = 0, folder = False):
         if not folder:
             liz.setProperty("IsPlayable", "true")
 
-        xbmcplugin.addDirectoryItem(handle = addonHandle, 
-            url = info["FileName"], listitem = liz, isFolder = folder, 
-            totalItems = total)
+            xbmcplugin.addDirectoryItem(handle = addonHandle, 
+                url = info["FileName"], listitem = liz, isFolder = False, 
+                totalItems = total)
+        else :
+            # This is a folder. Pass info to the plugin to allow
+            # ease of folder processing if selected.
+            url = buildUrl (
+                {'Mode' : info["Mode"], 'CameraId' : info["CameraId"]})
+            xbmcplugin.addDirectoryItem(handle = addonHandle, 
+                url = url, listitem = liz, isFolder = True, 
+                totalItems = total)
 
 def calculateAspect (width, height):
     aspect = int(width)/int(height)
@@ -128,8 +153,8 @@ def getUrl (path):
     url = "http://%s/%s/" % (server, path)
     return url
 
-def mysqlPassword (str):
-    pass1 = sha.new(str).digest()
+def mysqlPassword (seedPw):
+    pass1 = sha.new(seedPw).digest()
     pass2 = sha.new(pass1).hexdigest()
     return "*" + pass2.upper()
 
@@ -152,8 +177,8 @@ def createAuthString ():
                         __addon__.getSetting('username'), 
                         mysqlPassword(__addon__.getSetting('password')), 
                         myIP, hashtime))
-            hash = md5.new(hashable).hexdigest()
-            authurl = "&auth=%s" % (hash)
+            newHash = md5.new(hashable).hexdigest()
+            authurl = "&auth=%s" % (newHash)
             videoauthurl = authurl
         else :
             authurl = ("&username=%s&password=%s&action=login"
@@ -193,21 +218,21 @@ def listCameras (addonHandle):
                 (__addon__.getSetting('bitrate'),
                 __addon__.getSetting('fps')))
 
-            for id, width, height, name in match:
+            for camId, width, height, name in match:
                 # Add the Live View item
                 info = defaultInfo ()
                 info["Title"] = name + " " + localize (30205)
                 info["VideoResolution"] = width
                 info["Videoaspect"] = calculateAspect(width, height)
                 info["FileName"] = ("%snph-zms?monitor=%s&format=avi%s%s" % 
-                                    (cgiurl, id, qualityurl, videoauthurl))
+                                    (cgiurl, camId, qualityurl, videoauthurl))
                 info["Thumb"] = ("%snph-zms?monitor=%s&mode=single%s" % 
-                                       (cgiurl, id, videoauthurl))
+                                       (cgiurl, camId, videoauthurl))
                 info["Mode"] = "TopLevel"
                 addListItem (addonHandle, info, len(match), False)
 
                 #List events (of any)
-                listEventsFolder (addonHandle, id, url, info, doc, name)
+                listEventsFolder (addonHandle, camId, url, info, doc, name)
         else :
             sys.stderr.write(localize(30202))
             showMessage(localize(30202))
@@ -220,18 +245,14 @@ def listEventsFolder (addonHandle, thisCameraId, baseUrl, info, doc, name):
 
     if len(match) > 0:
 
-        for id, totalEvents in match:
+        for camId, totalEvents in match:
             #Match events for the current camera ID only.
-            if id != thisCameraId :
+            if camId != thisCameraId :
                 continue
 
             # Add the event item to the menu
-            info = defaultInfo ()
-            info["FileName"] = ("%s?view=events&page=1" 
-                            "&filter[terms][0][attr]=MonitorId"
-                            "&filter[terms][0][op]=%%3D"
-                            "&filter[terms][0][val]=%i"
-                            % (baseUrl, int (thisCameraId)))
+            info = defaultInfo (folder = True)
+            info["FileName"] = ""
             info["Thumb"] = ""
 
             # Add the Events(x) listitem, where x is the number of 
@@ -257,7 +278,7 @@ def listEvents (addonHandle, thisCameraId, baseUrl, info, doc, name):
 
     if len(match) > 0:
 
-        for id, totalEvents in match:
+        for camId, totalEvents in match:
             #Match events for the current camera ID only.
             if id != thisCameraId :
                 continue
@@ -272,7 +293,7 @@ def listEvents (addonHandle, thisCameraId, baseUrl, info, doc, name):
                             "&filter[terms][0][val]=%i"
                             % (baseUrl, int (thisCameraId)))
             info["Thumb"] = ("%snph-zms?monitor=%s&mode=single%s" % 
-                                   (cgiurl, id, videoauthurl))
+                                   (cgiurl, camId, videoauthurl))
             info["Mode"] = "Events"
 
             # Add the Events(x) listitem, where x is the number of 
@@ -282,7 +303,7 @@ def listEvents (addonHandle, thisCameraId, baseUrl, info, doc, name):
             info["Mode"] = "Events"
 
             # Add the events view item
-            addListItem (addonHandle, info, len(match), True)
+            addListItem (addonHandle, info, len(match), False)
             break
 
     else : #this is not an error since some cameras may have no events
@@ -292,7 +313,6 @@ def listEvents (addonHandle, thisCameraId, baseUrl, info, doc, name):
 ################
 # Main program #
 ################
-baseUrl = sys.argv[0]
 addonHandle = int(sys.argv[1])
 queryStr = sys.argv[2]
 args = urlparse.parse_qs(queryStr[1:])
@@ -314,5 +334,10 @@ if queryMode is None :
 elif queryMode[0] == 'EventsFolder' :
     sys.stderr.write ("Second baseUrl " + baseUrl)
     sys.stderr.write ("Second query " + queryStr)
-    showMessage("Go an Event", "Debug")
+    CameraId = args.get('CameraId', 0)[0]
+    showMessage("Event Folder %d" % (int (CameraId)), "Debug")
+
+elif queryMode[0] == 'Events' :
+    CameraId = args.get('CameraId', 0)[0]
+    showMessage("Event %d" % (int (CameraId)), "Debug")
 
