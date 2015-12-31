@@ -225,8 +225,8 @@ def listCameras (addonHandle):
                 info["VideoResolution"] = width
                 info["Videoaspect"] = calculateAspect(width, height)
                 info["FileName"] = ("%snph-zms?monitor=%s&format=avi%s%s" % 
-                                    (cgiurl, camId, qualityurl, videoauthurl))
-                info["Thumb"] = ("%snph-zms?monitor=%s&mode=single%s" % 
+                                  (cgiurl, camId, qualityurl, videoauthurl))
+                info["Thumb"] =    ("%snph-zms?monitor=%s&mode=single%s" % 
                                        (cgiurl, camId, videoauthurl))
                 info["Mode"] = "TopLevel" #not currently used
                 addListItem (addonHandle, info, len(match), False)
@@ -294,15 +294,17 @@ def listEvents (addonHandle, thisCameraId):
 
     if len(match) > 0:
 
-        sys.stderr.write("ListEvents %i events found" % (len (match)))
+        cgiurl = getUrl(__addon__.getSetting('cgiurl'))
+        qualityurl = ("bitrate=%s&maxfps=%s" % 
+            (__addon__.getSetting('bitrate'),
+            __addon__.getSetting('fps')))
+        authurl, videoauthurl = createAuthString()
 
         for width, height, eventName in match:
 
             #Parse from the eventName
             eventNumRe = re.compile ('Event-([0-9]+)')
             eventMatch = eventNumRe.match (eventName)
-
-            sys.stderr.write("ListEvents processing %s" % (eventName))
 
             if eventMatch :
                 eventId = int (eventMatch.group(1))
@@ -314,17 +316,25 @@ def listEvents (addonHandle, thisCameraId):
                 info["VideoResolution"] = width
                 info["Videoaspect"] = calculateAspect(width, height)
 
+                # http://192.168.1.107/cgi-bin/nph-zms?source=event
+                # &event=84&monitor=1&format=avi&bitrate=10
+                # &maxfps=25&user=admin&pass=jeremiah6872
+
                 info["FileName"] = (
-                    "%s?view=event&eid=%i&filter[terms][0][attr]=MonitorId" 
-                     "&filter[terms][0][op]=%%3D&filter[terms][0][val]=1"
-                     "&sort_field=StartTime&sort_asc=1&page=1"
-                     % (zmurl, eventId))
+                    "%snph-zms?source=event&event=%i&monitor=%i"
+                    "&format=avi&%s&%s" % (cgiurl, eventId, 
+                    thisCameraId, qualityurl, videoauthurl))
+
+                sys.stderr.write("Event CGI URL: %s" % (info["FileName"]))
 
                 info["Thumb"] = ""
 
+                # TBD need to update the event time
+                eventTime = ""
                 # Add the Event listitem
                 info["Title"] = ("%s %s: %s" % 
-                                (eventName, localize(30203), "12/29 02:38:16"))
+                                (eventName, localize(30203), 
+                                eventTime))
                 info["Mode"] = "Event"
 
                 # Add the events view item
