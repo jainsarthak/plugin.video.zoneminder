@@ -22,7 +22,7 @@
 import os, sys, urllib, urllib2, re
 import time, urlparse, md5, sha, xbmcgui, xbmcplugin, xbmcaddon
 
-REMOTE_DBG = True
+REMOTE_DBG = False
 
 # append pydev remote debugger. 
 # Ref. http://kodi.wiki/view/HOW-TO:Debug_Python_Scripts_with_Eclipse
