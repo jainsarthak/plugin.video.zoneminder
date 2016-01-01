@@ -67,7 +67,7 @@ def showMessage (message, title = "Warning"):
         dialog.ok("Message", "No message text")
 
 def getHtmlPage (url, cookie): #Grab an HTML page
-    sys.stderr.write("Requesting page: %s" % (url))
+    sys.stdout.write("Requesting page: %s" % (url))
     req = urllib2.Request(url)
     if cookie <> "":
         req.add_header('cookie', cookie)
@@ -173,7 +173,7 @@ def createAuthString ():
             nowtime = time.localtime()
             hashtime = ("%s%s%s%s" % (nowtime[3], nowtime[2], 
                             nowtime[1] - 1, nowtime[0] - 1900))
-            sys.stderr.write("Time (for hash): %s" % hashtime)
+            sys.stdout.write("Time (for hash): %s" % hashtime)
             hashable = ("%s%s%s%s%s" % (__addon__.getSetting('secret'), 
                         __addon__.getSetting('username'), 
                         mysqlPassword(__addon__.getSetting('password')), 
@@ -196,7 +196,7 @@ def listCameras (addonHandle):
     cgiurl = getUrl(__addon__.getSetting('cgiurl'))
     authurl, videoauthurl = createAuthString()
     url = "%s?skin=classic%s" % (zmurl, authurl)
-    sys.stderr.write("ListCameras grabbing URL: %s" % url)
+    sys.stdout.write("ListCameras grabbing URL: %s" % url)
     cookie = ""
     doc, cookie = getHtmlPage (url, cookie)
     match = re.compile('<form name="loginForm"').findall(doc)
@@ -235,6 +235,7 @@ def listCameras (addonHandle):
                 #List events (of any)
                 listEventsFolder (addonHandle, camId, url, info, doc, name)
         else :
+            #Display "No cameras found"
             sys.stderr.write(localize(30202))
             showMessage(localize(30202))
 
@@ -275,24 +276,24 @@ def listEventsFolder (addonHandle, thisCameraId, baseUrl, info, doc, name):
             break
 
     else : #this is not an error since cameras may have no events
-        sys.stderr.write("No events found for camera %d" 
+        sys.stdout.write("No events found for camera %d" 
                         % (int (thisCameraId)))
 
 def listEvents (addonHandle, thisCameraId, numEvents):
     # Now get the camera events list
     zmurl = getUrl(__addon__.getSetting('zmurl'))
-    url = ("%s?view=events&page=%s&filter[terms][0][attr]=MonitorId"
+    authurl, videoauthurl = createAuthString()
+    url = ("%s?%s&view=events&page=%s&filter[terms][0][attr]=MonitorId"
            "&filter[terms][0][op]=%%3D&filter[terms][0][val]=%i"
-           % (zmurl, "all", int (thisCameraId)))
+           % (zmurl, authurl, "all", int (thisCameraId)))
 
-    sys.stderr.write("ListEvents grabbing URL: %s" % url)
+    sys.stdout.write("ListEvents grabbing URL: %s" % url)
     cookie = ""
     doc, cookie = getHtmlPage (url, cookie)  
     cgiurl = getUrl(__addon__.getSetting('cgiurl'))
     qualityurl = ("bitrate=%s&maxfps=%s" % 
         (__addon__.getSetting('bitrate'),
         __addon__.getSetting('fps')))
-    authurl, videoauthurl = createAuthString()
 
     eventSearchStr = (
         "'zmEvent', 'event', ([1-9][0-9]+), ([1-9][0-9]+) \); "
@@ -303,8 +304,7 @@ def listEvents (addonHandle, thisCameraId, numEvents):
 
     htmlContents = doc.split ('\n')
 
-    sys.stderr.write("Doc contains %d lines" 
-                     % (len (htmlContents)))
+    sys.stdout.write("Doc contains %d lines" % (len (htmlContents)))
 
     #Search the HMTL doc line-by-line to read the events and timestamps.
     if len (htmlContents) > 0 :
@@ -335,7 +335,7 @@ def listEvents (addonHandle, thisCameraId, numEvents):
                     #Event duration
                     eventDuration = durationMatch.group(1)
 
-                    sys.stderr.write("ListEvents processing ID %i" % 
+                    sys.stdout.write("ListEvents processing ID %i" % 
                         (eventId))
 
                     # Add the event item to the menu
@@ -345,14 +345,14 @@ def listEvents (addonHandle, thisCameraId, numEvents):
 
                     # http://192.168.1.107/cgi-bin/nph-zms?source=event
                     # &event=84&monitor=1&format=avi&bitrate=10
-                    # &maxfps=25&user=admin&pass=jeremiah6872
+                    # &maxfps=25&user=admin&pass=PASS
 
                     info["FileName"] = (
                         "%snph-zms?source=event&event=%i&monitor=%i"
                         "&format=avi&%s&%s" % (cgiurl, eventId, 
                         thisCameraId, qualityurl, videoauthurl))
 
-                    sys.stderr.write("Event CGI URL: %s" % 
+                    sys.stdout.write("Event CGI URL: %s" % 
                         (info["FileName"]))
 
                     info["Thumb"] = ""
@@ -367,8 +367,13 @@ def listEvents (addonHandle, thisCameraId, numEvents):
                     # Add the events view item
                     addListItem (addonHandle, info, numEvents, False)
 
-    else : #this is not an error since some cameras may have no events
-        sys.stderr.write("No events found for camera %d" 
+            else : 
+                #Debugging 
+                #sys.stdout.write("Line %d: %s" % (n, line))
+                pass
+    else : 
+        #No detailed events information was retrieved.
+        sys.stderr.write("No detailed events info received for camera %d" 
                         % (int (thisCameraId)))
 
 ################
