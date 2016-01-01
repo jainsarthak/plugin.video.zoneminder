@@ -3,4 +3,4 @@ plugin.video.zoneminder
 
 ZoneMinder plugin for Kodi
 
-V1.0.0 initial v1 release
+V1.2.0 release -Added support for events.
