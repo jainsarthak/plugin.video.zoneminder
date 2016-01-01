@@ -17,7 +17,8 @@
  <string id="30200">Authentication Required</string>
  <string id="30201">Please configure authentication in the addon settings.</string>
  <string id="30202">No cameras found</string>
- <string id="30203">Recording Time</string>
+ <string id="30203">Recorded</string>
  <string id="30204">Events</string>
  <string id="30205">Live View</string>
+ <string id="30206">sec</string>
 </strings>

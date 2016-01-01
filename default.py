@@ -37,7 +37,8 @@ if REMOTE_DBG:
         # stdoutToServer and stderrToServer redirect stdout and stderr 
         # to eclipse console. Copy this line to where you want the
         # debugger to initially stop.
-        #pydevd.settrace('localhost', stdoutToServer=True, stderrToServer=True)
+        #pydevd.settrace('localhost', stdoutToServer=True, 
+        #                stderrToServer=True)
     except ImportError:
         sys.stderr.write("Error: " +
             "You must add org.python.pydev.debug.pysrc to your PYTHONPATH.")
@@ -267,6 +268,7 @@ def listEventsFolder (addonHandle, thisCameraId, baseUrl, info, doc, name):
                             (name, localize(30204), totalEventInt))
             info["Mode"] = "EventsList"
             info["CameraId"] = int (thisCameraId)
+            info["NumEvents"] = totalEventInt
 
             # Add the events view item
             addListItem (addonHandle, info, len(match), True)
@@ -276,7 +278,7 @@ def listEventsFolder (addonHandle, thisCameraId, baseUrl, info, doc, name):
         sys.stderr.write("No events found for camera %d" 
                         % (int (thisCameraId)))
 
-def listEvents (addonHandle, thisCameraId):
+def listEvents (addonHandle, thisCameraId, numEvents):
     # Now get the camera events list
     zmurl = getUrl(__addon__.getSetting('zmurl'))
     url = ("%s?view=events&page=%s&filter[terms][0][attr]=MonitorId"
@@ -286,59 +288,84 @@ def listEvents (addonHandle, thisCameraId):
     sys.stderr.write("ListEvents grabbing URL: %s" % url)
     cookie = ""
     doc, cookie = getHtmlPage (url, cookie)  
+    cgiurl = getUrl(__addon__.getSetting('cgiurl'))
+    qualityurl = ("bitrate=%s&maxfps=%s" % 
+        (__addon__.getSetting('bitrate'),
+        __addon__.getSetting('fps')))
+    authurl, videoauthurl = createAuthString()
+
     eventSearchStr = (
         "'zmEvent', 'event', ([1-9][0-9]+), ([1-9][0-9]+) \); "
         "return\( false \);\">(Event-%s)</a>")
     eventRe = re.compile (eventSearchStr % ("[0-9]+"))
-    match = eventRe.findall(doc)
+    eventDateRe = re.compile ('<td class="colTime">([0-9/ :]+)</td>')
+    eventDurationRe = re.compile ('<td class="colDuration">([0-9\.]+)</td>')
 
-    if len(match) > 0:
+    htmlContents = doc.split ('\n')
 
-        cgiurl = getUrl(__addon__.getSetting('cgiurl'))
-        qualityurl = ("bitrate=%s&maxfps=%s" % 
-            (__addon__.getSetting('bitrate'),
-            __addon__.getSetting('fps')))
-        authurl, videoauthurl = createAuthString()
+    sys.stderr.write("Doc contains %d lines" 
+                     % (len (htmlContents)))
 
-        for width, height, eventName in match:
+    #Search the HMTL doc line-by-line to read the events and timestamps.
+    if len (htmlContents) > 0 :
+        for n, line in enumerate (htmlContents, start=0) :
+            eventMatch = eventRe.search (line)
+            if eventMatch:
+                width = eventMatch.group(1)
+                height = eventMatch.group(1)
+                eventName = eventMatch.group(3)
 
-            #Parse from the eventName
-            eventNumRe = re.compile ('Event-([0-9]+)')
-            eventMatch = eventNumRe.match (eventName)
+                #Parse from the eventName
+                eventNumRe = re.compile ('Event-([0-9]+)')
+                eventNumMatch = eventNumRe.search (eventName)
 
-            if eventMatch :
-                eventId = int (eventMatch.group(1))
+                #Try to find the date/time stamp for the event. The
+                #date/time is 3 lines ahead of the event name.
+                dateMatch = eventDateRe.search (htmlContents[n+3])
 
-                sys.stderr.write("ListEvents processing ID %i" % (eventId))
+                #Try to find the duration of the event. The
+                #duration is 4 lines ahead of the event name.
+                durationMatch = eventDurationRe.search (htmlContents[n+4])
 
-                # Add the event item to the menu
-                info = defaultInfo ()
-                info["VideoResolution"] = width
-                info["Videoaspect"] = calculateAspect(width, height)
+                if dateMatch and eventNumMatch and durationMatch :
+                    #Event number
+                    eventId = int (eventNumMatch.group(1))
+                    #Date time stamp
+                    eventTimestamp = dateMatch.group(1)
+                    #Event duration
+                    eventDuration = durationMatch.group(1)
 
-                # http://192.168.1.107/cgi-bin/nph-zms?source=event
-                # &event=84&monitor=1&format=avi&bitrate=10
-                # &maxfps=25&user=admin&pass=jeremiah6872
+                    sys.stderr.write("ListEvents processing ID %i" % 
+                        (eventId))
 
-                info["FileName"] = (
-                    "%snph-zms?source=event&event=%i&monitor=%i"
-                    "&format=avi&%s&%s" % (cgiurl, eventId, 
-                    thisCameraId, qualityurl, videoauthurl))
+                    # Add the event item to the menu
+                    info = defaultInfo ()
+                    info["VideoResolution"] = width
+                    info["Videoaspect"] = calculateAspect(width, height)
 
-                sys.stderr.write("Event CGI URL: %s" % (info["FileName"]))
+                    # http://192.168.1.107/cgi-bin/nph-zms?source=event
+                    # &event=84&monitor=1&format=avi&bitrate=10
+                    # &maxfps=25&user=admin&pass=jeremiah6872
 
-                info["Thumb"] = ""
+                    info["FileName"] = (
+                        "%snph-zms?source=event&event=%i&monitor=%i"
+                        "&format=avi&%s&%s" % (cgiurl, eventId, 
+                        thisCameraId, qualityurl, videoauthurl))
 
-                # TBD need to update the event time
-                eventTime = ""
-                # Add the Event listitem
-                info["Title"] = ("%s %s: %s" % 
-                                (eventName, localize(30203), 
-                                eventTime))
-                info["Mode"] = "Event"
+                    sys.stderr.write("Event CGI URL: %s" % 
+                        (info["FileName"]))
 
-                # Add the events view item
-                addListItem (addonHandle, info, len(match), False)
+                    info["Thumb"] = ""
+
+                    # Add the Event listitem
+                    info["Title"] = ("%s  %s:  %s (%s %s)" % 
+                                    (eventName, localize(30203), 
+                                    eventTimestamp, eventDuration,
+                                    localize (30206)))
+                    info["Mode"] = "Event"
+
+                    # Add the events view item
+                    addListItem (addonHandle, info, numEvents, False)
 
     else : #this is not an error since some cameras may have no events
         sys.stderr.write("No events found for camera %d" 
@@ -368,8 +395,8 @@ if queryMode is None :
 
 elif queryMode[0] == 'EventsList' :
     CameraId = int (args.get('CameraId', '0')[0])
-    #showMessage("Event Folder %d" % (CameraId), "Debug")
-    listEvents (addonHandle, CameraId)
+    NumEvents = int (args.get('NumEvents', '0')[0])
+    listEvents (addonHandle, CameraId, NumEvents)
 
     xbmcplugin.setContent(addonHandle, 'movies')
 
