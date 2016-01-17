@@ -214,11 +214,16 @@ def listCameras (addonHandle):
         match = re.compile(
             "'zmWatch([0-9]+)', 'watch', ([1-9][0-9]+), ([1-9][0-9]+) \); "
             "return\( false \);\">(.*?)</a>").findall(doc)
-        if len(match) > 0:
+
+        NumCameras = len(match)
+
+        if NumCameras > 0:
             qualityurl = ("&bitrate=%s&maxfps=%s" % 
                 (__addon__.getSetting('bitrate'),
                 __addon__.getSetting('fps')))
 
+            #Add live view for all cameras, plus for any cameras with 
+            #events, add a folder for this as well.
             for camId, width, height, name in match:
                 # Add the Live View item
                 info = defaultInfo ()
@@ -234,6 +239,21 @@ def listCameras (addonHandle):
 
                 #List events (of any)
                 listEventsFolder (addonHandle, camId, url, info, doc, name)
+
+            #If at least 2 cameras are available, add montage list item. 
+            #Note that video setup is done in the configuration menu.
+            if NumCameras >= 2:
+                # Add the Montage item to the end of the list.
+                info = defaultInfo ()
+                info["Title"] = localize (30300)
+                info["Mode"] = "Montage"
+                #TODO Remove hard-coded test code
+                info["FileName"] = ("%snph-zms?mode=jpeg&monitor=1&scale=25&"
+                   "maxfps=10&user=admin&pass=5089inet" % (cgiurl))
+                info["Thumb"] = ""
+                info["NumCameras"] = NumCameras
+                addListItem (addonHandle, info, NumCameras, False)
+
         else :
             #Display "No cameras found"
             sys.stderr.write(localize(30202))
@@ -376,6 +396,55 @@ def listEvents (addonHandle, thisCameraId, numEvents):
         sys.stderr.write("No detailed events info received for camera %d" 
                         % (int (thisCameraId)))
 
+def convertMontageScale (userScale):
+    if userScale == '4x':
+        return 400
+    elif userScale == '3x':
+        return 300
+    elif userScale == '2x':
+        return 200
+    elif userScale == '1.5x':
+        return 150
+    elif userScale == 'Actual':
+        return 100
+    elif userScale == '3/4':
+        return 75
+    elif userScale == '1/2':
+        return 50
+    elif userScale == '1/3':
+        return 33
+    elif userScale == '1/4':
+        return 25
+    else :
+        return 100
+
+def convertMontageLayout (userLayout):
+    return userLayout
+
+def ShowMontageView (addonHandle, NumCameras) :
+    sys.stdout.write("Montage view")
+
+    cgiurl = getUrl(__addon__.getSetting('cgiurl'))
+    authurl, videoauthurl = createAuthString()
+    qualityurl = ("&maxfps=%s" % (__addon__.getSetting('fps')))
+    urlScale = convertMontageScale (__addon__.getSetting('scale'))
+    layout = convertMontageLayout (__addon__.getSetting('layout'))
+
+    for camera in NumCameras :
+        # Add the Live View item
+        info = defaultInfo ()
+        info["Title"] = "%s %s" % (localize (30300), localize (30303))
+
+        #Sample montage video URL
+        #"http://192.168.1.107/cgi-bin/nph-zms?mode=jpeg&monitor=1&scale=25&
+        # maxfps=10&user=admin&pass=PASS"
+        info["FileName"] = ("%snph-zms?mode=jpeg&monitor=%i&scale=%i&%s%s" %
+                         (cgiurl, camera, urlScale, qualityurl, videoauthurl))
+        info["Thumb"] = ""
+        info["Mode"] = "MontageVideo" #not currently used
+        addListItem (addonHandle, info, NumCameras, False)
+
+
 ################
 # Main program #
 ################
@@ -414,7 +483,24 @@ elif queryMode[0] == 'EventsList' :
     xbmcplugin.endOfDirectory(addonHandle)
 
 elif queryMode[0] == 'Event' :
+    #Video playback of an event has been selected.
+    #Nothing to do here, the CGI URL is embedded in the filename
+    #of the menu item.
     pass
-    #CameraId = int (args.get('CameraId', '0')[0])
-    #showMessage("Event Folder %d" % (CameraId), "Debug")
+
+elif queryMode[0] == 'Montage' :
+    NumCameras = int (args.get('NumCameras', '0')[0])
+
+    ShowMontageView (addonHandle, NumCameras)
+
+    xbmcplugin.setContent(addonHandle, 'movies')
+
+    xbmcplugin.addSortMethod(handle = addonHandle, 
+         sortMethod = xbmcplugin.SORT_METHOD_UNSORTED)
+
+    xbmcplugin.addSortMethod(handle = addonHandle, 
+         sortMethod = xbmcplugin.SORT_METHOD_LABEL)
+
+    xbmcplugin.endOfDirectory(addonHandle)
+
 

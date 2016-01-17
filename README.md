@@ -2,12 +2,14 @@ plugin.video.zoneminder
 =======================
 
 ZoneMinder plugin for Kodi. It allows viewing of the live video stream
-of all cameras in your Zoneminder system. Also the plugin allows 
-playback of recordєd event video. 
+of all cameras in your Zoneminder system. The plugin also allows 
+playback of recorded event video and montage view.
 
-V1.3.0 release -Added support for montage view of cameras.
+V1.3.0 release 
+- Added support for montage view of cameras.
 
-V1.2.0 release -Added support for events.
+V1.2.0 release 
+- Added support for events.
 
 V1.1.2 release
 - Frodo Compatible Version
