@@ -1,3 +1,9 @@
+1.3.0
+- Added support for montage view of all cameras.
+
+1.2.0
+- Added support to view events for all cameras.
+
 1.1.2
 - Frodo Compatible Version
 

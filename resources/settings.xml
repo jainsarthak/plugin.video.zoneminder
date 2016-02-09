@@ -16,4 +16,8 @@
   <setting id="thisip"   type="bool"       label="30011" default="true"                   visible="eq(-6,true) + eq(-3,true) + eq(-1,true)"/>
   <setting id="otherip"  type="ipaddress"  label="30012" default=""                       visible="eq(-7,true) + eq(-4,true) + eq(-2,true) + eq(-1,false)"/>
  </category>
+ <category label="30300">
+  <setting id="scale"  type="labelenum"  label="30301" default="1/2" values="4x|3x|2x|1.5x|Actual|3/4|1/2|1/3|1/4"/>
+  <setting id="layout" type="labelenum"  label="30302" default="Default" values="Default|2-wide|3-wide|4-wide|3-wide scaled"/>
+ </category>
 </settings>
