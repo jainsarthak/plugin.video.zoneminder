@@ -150,9 +150,13 @@ def calculateAspect (width, height):
 
 def getUrl (path):
     server = __addon__.getSetting('server').strip("/").strip()
-    path = path.strip("/").strip()
-    url = "http://%s/%s/" % (server, path)
-    return url
+    path = path.strip("/").strip() 
+    if __addon__.getSetting('https') == 'true':                
+       protocol="https"
+    else:         
+       protocol="http"
+    url = "%s://%s/%s/" % (protocol, server, path)
+    return url 
 
 def mysqlPassword (seedPw):
     pass1 = sha.new(seedPw).digest()
