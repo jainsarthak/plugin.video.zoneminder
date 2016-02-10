@@ -1,5 +1,6 @@
 <strings>
  <string id="30000">Server Name/IP</string>
+ <string id="30013">HTTPS</string>
  <string id="30001">ZM Directory</string>
  <string id="30002">CGI Directory</string>
  <string id="30003">Max Bitrate (MB/s)</string>
