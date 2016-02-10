@@ -324,7 +324,7 @@ def listEvents (addonHandle, thisCameraId, numEvents):
         "return\( false \);\">(Event-%s)</a>")
     eventRe = re.compile (eventSearchStr % ("[0-9]+"))
     eventDateRe = re.compile ('<td class="colTime">([0-9/ :]+)</td>')
-    eventDurationRe = re.compile ('<td class="colDuration">([0-9\:]+)</td>')
+    eventDurationRe = re.compile ('<td class="colDuration">([0-9(\:|\.)]+)</td>')
 
     htmlContents = doc.split ('\n')
 
