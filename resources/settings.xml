@@ -1,6 +1,7 @@
 <settings>
  <category label="30100">
   <setting id="server"   type="text"       label="30000" default="zoneminder"/>
+  <setting id="https"    type="bool"       label="30013" default="false"/>
   <setting id="zmurl"    type="text"       label="30001" default="zm"/>
   <setting id="cgiurl"   type="text"       label="30002" default="cgi-bin"/>
   <setting id="bitrate"  type="labelenum"  label="30003" default="10" values="0.1|0.5|1|2|5|10|50|100"/>
