@@ -253,7 +253,7 @@ def listCameras (addonHandle):
                 info["Mode"] = "Montage"
                 #TODO Remove hard-coded test code
                 info["FileName"] = ("%snph-zms?mode=jpeg&monitor=1&scale=25&"
-                   "maxfps=10&user=admin&pass=5089inet" % (cgiurl))
+                   "maxfps=10%s" % (cgiurl, videoauthurl))
                 info["Thumb"] = ""
                 info["NumCameras"] = NumCameras
                 addListItem (addonHandle, info, NumCameras, False)
